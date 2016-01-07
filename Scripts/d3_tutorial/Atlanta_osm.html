@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<style>
+<svg id="mySvg" width="80" height="80">
+      <defs id="mdef">
+        <pattern id="image" x="0" y="0" height="40" width="40">
+          <image x="0" y="0" width="40" height="40" xlink:href="http://www.e-pint.com/epint.jpg"></image>
+        </pattern>
+  </defs>
+
+
+</style>
+
+<body>
+
+  svg.append("circle")
+         .attr("class", "logo")
+         .attr("cx", 225)
+         .attr("cy", 225)
+         .attr("r", 20)
+         .style("fill", "transparent")       
+         .style("stroke", "black")     
+         .style("stroke-width", 0.25)
+         .on("mouseover", function(){ 
+               d3.select(this)
+                   .style("fill", "url(#image)");
+         })
+          .on("mouseout", function(){ 
+               d3.select(this)
+                   .style("fill", "transparent");
+         });
+</body>

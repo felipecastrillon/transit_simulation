@@ -1,0 +1,11 @@
+{
+"type": "FeatureCollection",
+"crs": { "type": "name", "properties": { "name": "urn:ogc:def:crs:OGC:1.3:CRS84" } },
+                                                                                
+"features": [
+{ "type": "Feature", "properties": { "latitude": 33.778243, "longitude": -84.370670, "time": 1, "id": "route1", "name":"Gimme" }, "geometry": { "type": "Point", "coordinates": [ -84.370670, 33.779243 ] } },
+{ "type": "Feature", "properties": { "latitude": 33.779243, "longitude": -84.370670, "time": 2, "id": "route1", "name":"Along route"   }, "geometry": { "type": "Point", "coordinates": [ -84.370670, 33.780243 ] } },
+{ "type": "Feature", "properties": { "latitude": 33.780243, "longitude": -84.370670, "time": 3, "id": "route1", "name":"Along route"   }, "geometry": { "type": "Point", "coordinates": [ -84.370670, 33.781243 ] } },
+{ "type": "Feature", "properties": { "latitude": 33.781243, "longitude": -84.370670, "time": 4, "id": "route1", "name":"Proletariat"   }, "geometry": { "type": "Point", "coordinates": [ -84.370670, 33.782243 ] } }
+]
+}

@@ -1,0 +1,476 @@
+// Create a 3d scatter plot within d3 selection parent.
+function scatterPlot3d( parent )
+{
+
+  var minx = 33.60
+  var maxx = 33.96
+  var miny =  7  
+  var maxy =  8
+  var minz = -84.5
+  var maxz = -84.2
+
+  var x3d = parent  
+    .append("x3d")
+      .style( "width", parseInt(parent.style("width"))+"px" )
+      .style( "height", parseInt(parent.style("height"))+"px" )
+      .style( "border", "none" )
+
+  var scene = x3d.append("scene")
+    
+  var orient = scene.append("orthoviewpoint")
+     .attr( "centerOfRotation", [5, 5, 5])
+     .attr( "fieldOfView", [-5, -5, 15, 15])
+     .attr( "position", [3, -3, 10])
+  
+  scene = scene.append('transform')
+        .attr('rotation',[1, 0, 0, 1*Math.PI/2])  
+      .append('transform')
+        .attr('rotation',[0, 1, 0, 1*Math.PI/2])
+
+  var tooltip = d3.select('body').append('div')
+      .style('position','absolute')
+      .style('padding','0 10px')
+      .style('backgound','white')
+      .style('opacity',0)
+
+  var rows = initializeDataGrid();
+  var axisRange = [0, 10];
+  var scales = [];
+  var initialDuration = 0;
+  var defaultDuration = 10000;
+  var ease = 'linear';
+  var axisKeys = ["x", "y", "z"]
+
+  // Helper functions for initializeAxis() and drawAxis()
+  function axisName( name, axisIndex ) {
+    return ['x','y','z'][axisIndex] + name;
+  }
+
+  function constVecWithAxisValue( otherValue, axisValue, axisIndex ) {
+    var result = [otherValue, otherValue, otherValue];
+    result[axisIndex] = axisValue;
+    return result;
+  }
+
+  // Used to make 2d elements visible
+  function  makeSolid(selection, color) {
+    selection.append("appearance")
+      .append("material")
+         .attr("diffuseColor", color||"black")
+    return selection;
+  }
+
+  // Initialize the axes lines and labels.
+  function initializePlot() {
+    initializeAxis(0);file:///home/felipe/Dropbox/Research/Energy/Scripts/3d_network/index.html
+    initializeAxis(1);
+    initializeAxis(2);
+  }
+
+  function initializeAxis( axisIndex )
+  {
+    var key = axisKeys[axisIndex];
+    drawAxis( axisIndex, key, initialDuration );
+
+    var scaleMin = axisRange[0];
+    var scaleMax = axisRange[1];
+
+    // the axis line
+    var newAxisLine = scene.append("transform")
+         .attr("class", axisName("Axis", axisIndex))
+         .attr("rotation", ([[0,0,0,0],[0,0,1,Math.PI/2],[0,1,0,-Math.PI/2]][axisIndex]))
+      .append("shape")
+    newAxisLine
+      .append("appearance")
+      .append("material")
+        .attr("emissiveColor", "lightgray")
+    newAxisLine
+      .append("polyline2d")
+         // Line drawn along y axis does not render in Firefox, so draw one
+         // along the x axis instead and rotate it (above).
+        .attr("lineSegments", "0 0," + scaleMax + " 0")
+
+   // axis labels
+   var newAxisLabel = scene.append("transform")
+       .attr("class", axisName("AxisLabel", axisIndex))
+       .attr("translation", constVecWithAxisValue( 0, scaleMin + 1.1 * (scaleMax-scaleMin), axisIndex ))
+
+   var newAxisLabelShape = newAxisLabel
+     .append("billboard")
+       .attr("axisOfRotation", "0 0 0") // face viewer
+     .append("shape")
+     .call(makeSolid)
+
+   var labelFontSize = 0.6;
+
+   newAxisLabelShape
+     .append("text")
+       .attr("class", axisName("AxisLabelText", axisIndex))
+       .attr("solid", "true")
+       .attr("string", key)
+    .append("fontstyle")
+       .attr("size", labelFontSize)
+       .attr("family", "SANS")
+       .attr("justify", "END MIDDLE" )
+  }
+
+  // Assign key to axis, creating or updating its ticks, grid lines, and labels.
+  function drawAxis( axisIndex, key, duration ) {
+
+    var max = 10;
+    var min = 0
+
+    if (axisIndex == 0){
+      min = minx
+      max = maxx
+    }else if(axisIndex == 1){
+      min = miny
+      max = maxy
+    }else if(axisIndex == 2){
+      min = minz
+      max = maxz
+    }
+
+    var scale = d3.scale.linear()
+      .domain( [min,max] ) // demo data range
+      .range( axisRange )
+    
+    scales[axisIndex] = scale;
+
+    var numTicks = 8;
+    var tickSize = 0.1;
+    var tickFontSize = 0.3;
+
+    // ticks along each axis
+    var ticks = scene.selectAll( "."+axisName("Tick", axisIndex) )
+       .data( scale.ticks( numTicks ));
+    var newTicks = ticks.enter()
+      .append("transform")
+        .attr("class", axisName("Tick", axisIndex));
+    newTicks.append("shape").call(makeSolid)
+      .append("box")
+        .attr("size", tickSize + " " + tickSize + " " + tickSize);
+    // enter + update
+    ticks.transition().duration(duration)
+      .attr("translation", function(tick) { 
+         return constVecWithAxisValue( 0, scale(tick), axisIndex ); })
+    ticks.exit().remove();
+
+    // tick labels
+
+    var tickLabels = ticks.selectAll("billboard shape text")
+      .data(function(d) { return [d]; });
+    var newTickLabels = tickLabels.enter()
+      .append("billboard")
+         .attr("axisOfRotation", "0 0 0")     
+      .append("shape")
+      .call(makeSolid)
+    newTickLabels.append("text")
+      .attr("string", scale.tickFormat(10))
+      .attr("solid", "true")
+      .append("fontstyle")
+        .attr("size", tickFontSize)
+        .attr("family", "SANS")
+        .attr("justify", "END MIDDLE" );
+    tickLabels // enter + update
+      .attr("string", scale.tickFormat(10))
+    tickLabels.exit().remove();
+
+    // base grid lines
+    if (axisIndex==0 || axisIndex==2) {
+
+      var gridLines = scene.selectAll( "."+axisName("GridLine", axisIndex))
+         .data(scale.ticks( numTicks ));
+      gridLines.exit().remove();
+      
+      var newGridLines = gridLines.enter()
+        .append("transform")
+          .attr("class", axisName("GridLine", axisIndex))
+          .attr("rotation", axisIndex==0 ? [0,1,0, -Math.PI/2] : [0,0,0,0])
+        .append("shape")
+
+      newGridLines.append("appearance")
+        .append("material")
+          .attr("emissiveColor", "gray")
+      newGridLines.append("polyline2d");
+
+      gridLines.selectAll("shape polyline2d").transition().duration(duration)
+        .attr("lineSegments", "0 0, " + axisRange[1] + " 0")
+
+      gridLines.transition().duration(duration)
+         .attr("translation", axisIndex==0
+            ? function(d) { return scale(d) + " 0 0"; }
+            : function(d) { return "0 0 " + scale(d); }
+          )
+    }  
+  }
+
+ 
+  function initializeDataGrid() {
+    var rows = [];
+    // Follow the convention where y(x,z) is elevation.
+    for (var x=-5; x<=5; x+=1) {
+      for (var z=-5; z<=5; z+=1) {
+          rows.push({x: x, y: 0, z: z});
+     }
+    }
+    return rows;
+  }
+
+  //draw nodes and links
+  function drawData(duration){
+
+    var nodes = []
+    var links = []
+
+    //create nodes
+    d3.csv('nodes.txt', function(d){
+
+       for (key in d){
+            nodes.push(d[key])    
+        }
+        
+        var x = scales[0], y = scales[1], z = scales[2];
+        var sphereRadius = 0.1  ;
+
+        var datapoints = scene.selectAll(".datapt").data(nodes);
+        datapoints.exit().remove()
+
+        var newDatapoints = datapoints.enter()
+          .append("transform")
+            .attr("class", "datapt")
+            .attr("scale", [sphereRadius, sphereRadius, sphereRadius])
+          .append("shape")
+              .attr("label", function(node) {return node[Object.keys(node)[3]]})
+              .attr("time", function(node) {return node[Object.keys(node)[2]]});
+        newDatapoints
+          .append("appearance")
+          .append("material");
+        newDatapoints
+          .append("sphere") 
+
+        
+        datapoints
+        .attr("translation", function(node) { 
+        return x(node[Object.keys(node)[0]]) + "," + y(node[Object.keys(node)[2]]) + "," + z(node[Object.keys(node)[1]]) })
+
+
+    })
+
+
+    //create links
+  
+    d3.csv('links.txt', function(d){
+        
+        var x = scales[0], y = scales[1], z = scales[2];
+
+        //push data 
+        for (key in d){
+            links.push(d[key])    
+        }
+
+        var lines = scene.selectAll(".edge").data( links );
+            lines.exit().remove();
+
+        var newLines = lines.enter()
+          .append("transform")
+            .attr("class", "edge")
+          .append("shape");
+        
+        newLines
+          .append("appearance")
+          .append("material")
+            //color based on link type
+            .attr("emissiveColor", function(link){
+                if (link[Object.keys(link)[3]] == "rail"){
+                    return 'red'
+                }else if (link[Object.keys(link)[3]] == "bus"){
+                    return 'blue'
+                }else if (link[Object.keys(link)[3]] == "wait"){
+                    return 'green'
+                }else if (link[Object.keys(link)[3]] == "walk"){
+                    return 'purple'                
+                }else{
+                    return 'orange'
+                }
+
+            })
+
+        newLines
+          .append("LineSet")
+            .attr("vertexCount",2)
+            .attr("usegeocache","false")
+            .attr("ccw","false")
+            .attr("solid","false")
+            .attr("lit","false")
+            .append("Coordinate")
+                .attr("point",function(link) 
+                    { 
+                      return x(link[Object.keys(link)[4]])+
+                         " "+y(link[Object.keys(link)[8]])+
+                         " "+z(link[Object.keys(link)[6]])+
+                         " "+x(link[Object.keys(link)[5]])+
+                         " "+y(link[Object.keys(link)[9]])+
+                         " "+z(link[Object.keys(link)[7]])
+                    ;})              
+    })
+
+
+  }
+
+  //animate path
+  function drawPath(duration){  
+    
+    var nodes = []
+    d3.csv('path.txt', function(d){
+
+      var x = scales[0], y = scales[1], z = scales[2];
+      var sphereRadius = 0.1  ;
+      var maxt = 0
+      var mint = 24
+
+    //read in data and save times
+      
+      for (key in d){
+        //for (i = 0; i < 10; i++){
+          nodes.push(d[key])
+          //set maximum and minimum times 
+          if (d[key].time > maxt){
+            maxt =  d[key].time         
+          }
+          if (d[key].time < mint){
+            mint =  d[key].time         
+          }
+        //}    
+      }
+      var deltat = maxt - mint
+  
+      //color data point of the path
+
+      var datapoints = scene.selectAll(".pathpt").data(nodes);
+      datapoints.exit().remove()
+
+      var newDatapoints = datapoints.enter()
+        .append("transform")
+          .attr("class", "pathpt")
+          .attr("scale", [sphereRadius, sphereRadius, sphereRadius])
+        .append("shape")
+            .attr("label", function(node) {return node[Object.keys(node)[3]]})
+            .attr("time", function(node) {return node[Object.keys(node)[2]]});
+      newDatapoints
+        .append("appearance")
+        .append("material")
+          .attr("diffusecolor","0.91,0.7,0.11")
+      newDatapoints
+        .append("sphere") 
+
+
+      datapoints
+      .attr("translation", function(node) { 
+        return x(node[Object.keys(node)[0]]) + "," + y(node[Object.keys(node)[2]]) + "," + z(node[Object.keys(node)[1]]) })
+
+      //create marker
+      var marker = scene.append("transform").call(transition) 
+          .attr("class", "marker")
+          .attr("scale", [sphereRadius, sphereRadius, sphereRadius])
+        .append("shape")
+      marker
+        .append("appearance")
+        .append("material")
+          .attr("diffusecolor","1,0,0")
+      marker
+        .append("sphere") 
+      //initial position
+      first = nodes[0]
+      scene.select(".marker")
+        .attr("translation",x(first[Object.keys(first)[0]]) + "," + y(first[Object.keys(first)[2]]) + "," + z(first[Object.keys(first)[1]]) )
+        
+      //animate path and marker
+      function transition(marker) {
+        marker.transition()
+            .duration(duration)
+              .attrTween("translation", tweenDash)
+            .each("end", function() { d3.select(this).call(transition); });// infinite loop
+      }
+
+      function tweenDash() {
+        return function(t) { //t is between 0 and 1
+          //find the time bewteen nodes
+          for (key in nodes){
+            if (key == 0){continue;} //ignore first entry
+            //interpolate between two points  
+            var realt = t*deltat + Number(mint)
+            if (nodes[key].time >= realt){  
+              delta = (realt- nodes[key-1].time)/(nodes[key].time-nodes[key-1].time) 
+              time = Number(nodes[key-1].time) + Number(delta)*(Number(nodes[key].time) - Number(nodes[key-1].time)) 
+              lat = Number(nodes[key-1].lat) + Number(delta)*(Number(nodes[key].lat) - Number(nodes[key-1].lat)) 
+              lon = Number(nodes[key-1].lon) + Number(delta)*(Number(nodes[key].lon) - Number(nodes[key-1].lon))  
+              break;
+            }
+          }
+           return x(lat) + ',' + y(time) + ',' + z(lon)
+        };
+      }
+     
+    })
+  }
+  
+  initializeDataGrid();
+  initializePlot();
+  drawData(defaultDuration);
+  drawPath(defaultDuration);
+
+}
+
+//Handle animations after onload
+document.onload = function() {
+
+  //tooltip to display labels
+  var tooltip = d3.select('body').append('div')
+      .style('position','absolute')
+      .style('padding','0 10px')
+      .style('background','blue')
+      .style('opacity',0) 
+      .style('left','0px')
+      .style('top','0px')
+      .style('color','white')
+      .style('border-radius', '8px') 
+      .style('text-align', 'center')
+
+  
+  //select all sphere elemeents
+  var sels = document.getElementsByTagName('sphere');
+  for (i=0; i<sels.length; i++){
+
+    //when mouse hovers above point
+    sels[i].addEventListener('mouseover', function(d) {
+
+      //highlight selected point
+      tempcolor = d.target.childNodes[0].childNodes[0].getAttribute('diffuseColor')
+      d.target.childNodes[0].childNodes[0].setAttribute('diffuseColor','0.91,0.7,0.11')
+
+      //get hours, minutes, seconds
+      time = d.target.getAttribute('time') * 3600 
+      var hours = Math.floor(time / 3600),
+        minutes = Math.floor((time - (hours * 3600)) / 60),
+        seconds = Math.floor(time - (hours * 3600) - (minutes * 60),0);
+
+      //draw label
+      tooltip
+          .style("opacity",0.5)
+      tooltip.html(d.target.getAttribute('label')+ "<br/>"+ "Time: "+ hours + ":"+ minutes+":"+seconds)
+        .style('left',(d.layerX+20) + "px")
+        .style('top',(d.layerY+20) + 'px');
+    
+        })
+
+    //when mouse hovers out of point
+    sels[i].addEventListener('mouseout', function(d) {
+      tooltip
+          .style("opacity",0)
+      d.target.childNodes[0].childNodes[0].setAttribute('diffuseColor',tempcolor)
+    })
+  } ;
+}                                                                                                                               
+
+

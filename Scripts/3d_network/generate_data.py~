@@ -1,0 +1,30 @@
+import pandas as pd
+
+
+outf = open('stop_nodes.txt','w')
+
+#read stops and save lat and lon
+lat = {}
+lon = {}
+df = pd.read_csv("stops.txt")
+for i, row in df.iterrows():
+    lat[row['stop_id']] = row['stop_lat']
+    lon[row['stop_id']] = row['stop_lon']
+
+print lat
+
+#read stop times and save
+df = pd.read_csv("stop_times.txt")
+def fx(x):
+    l = x.split(':')
+    return (float(l[0]) * 3600 + float(l[1]) * 60 + float(l[2]))/3600.0
+df['thrs'] = df.arrival_time.apply(fx)
+    
+
+for i, row in df.iterrows(): 
+    outf.write(str(lat[row['stop_id']])+','+str(lon[row['stop_id']])+','+str(row['thrs'])+"\n")
+    if i == 1500:
+        break;
+
+
+outf.close()
